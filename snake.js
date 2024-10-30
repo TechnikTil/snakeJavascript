@@ -1,160 +1,192 @@
 var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext("2d");
 
-var width = 50;
-var height = 50;
+var sideLength = 150;
+var gameSideLength = 750;
 
-var scale = 15;
-canvas.width = width*scale;
-canvas.height = height*scale;
+updateCanvasResolution();
 
-ctx.scale(scale, scale);
-
-document.body.style.width = canvas.width + 'px';
-document.body.style.height= canvas.height + 'px';
-
-var updateID;
-var curSpeed = 200;
-function setupGame()
+function updateCanvasResolution()
 {
-    updateID = setInterval(update, curSpeed);
-    document.addEventListener("keydown", keyDown, false);
+	gameSideLength = Math.min(750, window.innerWidth, window.innerHeight);
+
+	canvas.style.left = (window.innerWidth - gameSideLength) / 2 + 'px';
+	canvas.style.top = (window.innerHeight - gameSideLength) / 2 + 'px';
+	canvas.style.position = "absolute";
+
+	canvas.width = gameSideLength;
+	canvas.height = gameSideLength;
+
+	document.body.width = window.innerWidth;
+	document.body.height = window.innerHeight;
+
+	var scale = gameSideLength/sideLength;
+	ctx.scale(scale, scale);
 }
 
-setupGame();
+window.addEventListener("resize", updateCanvasResolution);
 
-
-function drawSquare(x, y) 
+function drawSquare(x, y, width, height) 
 {
-    ctx.fillStyle = "green";
-    ctx.fillRect(x, y, 1, 1);
+	ctx.fillStyle = "green";
+	ctx.fillRect(x, y, width, height);
 }
 
 var snake = {x: 0, y: 0};
 var snakeArray = [];
-var snakeLength = 1;
+var snakeLength = 1; // acts like score
 function drawSnake()
 {
-    snake.x = snake.x % width;
-    snake.y = snake.y % height;
+	snake.x = snake.x % (sideLength / 3);
+	snake.y = snake.y % (sideLength / 3);
 
-    if(snake.x < 0)
-        snake.x = width + snake.x;
+	if(snake.x < 0)
+		snake.x = sideLength + snake.x;
 
-    if(snake.y < 0)
-        snake.y = height + snake.y;
+	if(snake.y < 0)
+		snake.y = sideLength + snake.y;
 
-    snakeArray.push(snake);
+	snakeArray.push(snake);
 
-    for(var i=0; i < snakeLength; i++)
-    {
-        var drawSnake = snakeArray[snakeArray.length-i-1];
-        drawSquare(drawSnake.x, drawSnake.y);
-    }
-
-    snake = {
-        x: snake.x,
-        y: snake.y
-    }; // new snake obj
+	var curSnakes = getCurSnakes();
+	for(var i=0; i < curSnakes.length; i++)
+	{
+		var drawSnake = curSnakes[i];
+		drawSquare(drawSnake.x*3, drawSnake.y*3, 3, 3);
+	}
 }
 
-var fruit = null;
+function getCurSnakes()
+{
+	var toReturn = [];
+
+	for(var i=1; i < snakeLength+1; i++)
+		toReturn.push(snakeArray[snakeArray.length-i]);
+
+	return toReturn;
+}
+
+var fruit = {x: 0, y: 0};
 function drawFruit()
 {
-    if(fruit == null)
-        fruit = {x: Math.floor(Math.random() * width), y: Math.floor(Math.random() * height)};
+	drawSquare((fruit.x*3)+1, (fruit.y*3), 1, 1);
 
-    drawSquare(fruit.x, fruit.y);
+	drawSquare((fruit.x*3), (fruit.y*3)+1, 1, 1);
+	drawSquare((fruit.x*3)+2, (fruit.y*3)+1, 1, 1);
+
+	drawSquare((fruit.x*3)+1, (fruit.y*3)+2, 1, 1);
 }
 
 function clearDrawings()
 {
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, width, height);
+	ctx.fillStyle = "black";
+	ctx.fillRect(0, 0, sideLength, sideLength);
 }
 
 var directions = [];
 
 function keyDown(e)
 {
-    var key = e.keyCode;
+	var key = e.keyCode;
 
-    function lastDirectionIsnt(direction) 
-    {
-        console.log(directions.length);
-        console.log(direction);
-        console.log(lastDirection);
-        
-        if(directions.length != 0)
-            return directions[directions.length-1] != direction;
-        else
-            return lastDirection != direction;
-    }
+	function lastDirectionIsnt(direction) 
+	{
+		if(directions.length != 0)
+			return directions[directions.length-1] != direction;
+		else
+			return lastDirection != direction;
+	}
 
-    if (key == 37 && lastDirectionIsnt("right")) {
-        directions.push("left");
-    }
-    
-    if (key == 38 && lastDirectionIsnt("down")) {
-        directions.push("up");
-    }
-    
-    if (key == 39 && lastDirectionIsnt("left")) {
-        directions.push("right");
-    }
-    
-    if (key == 40 && lastDirectionIsnt("up")) {
-        directions.push("down");
-    }
+	if ((key == 37 || key == 65) && lastDirectionIsnt("right")) {
+		directions.push("left");
+	}
+	
+	if ((key == 38 || key == 87) && lastDirectionIsnt("down")) {
+		directions.push("up");
+	}
+	
+	if ((key == 39 || key == 68) && lastDirectionIsnt("left")) {
+		directions.push("right");
+	}
+	
+	if ((key == 40 || key == 83) && lastDirectionIsnt("up")) {
+		directions.push("down");
+	}
+}
+
+function moveFruit()
+{
+	fruit.x = Math.floor(Math.random() * (sideLength / 3));
+	fruit.y = Math.floor(Math.random() * (sideLength / 3));
 }
 
 function checkColision()
 {
-    if(snake.x == fruit.x && snake.y == fruit.y)
-    {
-        snakeLength++;
-        console.log('snake got fruit!');
-        fruit = {x: Math.floor(Math.random() * width), y: Math.floor(Math.random() * height)};
+	var curSnakes = getCurSnakes();
+	for(var i=0; i < curSnakes.length; i++)
+	{
+		var drawSnake = curSnakes[i];
+		if(drawSnake.x == snake.x && drawSnake.y == snake.y && i != 0)
+		{
+			// TODO: make an animation that happens when you die
+			console.log('snake died! ' + i);
+			clearInterval(updateID);
+		}
+	}
 
-        // speed up the game by 0.5%
-        clearInterval(updateID);
-        curSpeed -= curSpeed * 0.05;
-        updateID = setInterval(update, curSpeed);
-    }
+	if(snake.x == fruit.x && snake.y == fruit.y)
+	{
+		snakeLength++;
+		console.log('snake got fruit!');
+		moveFruit();
 
-    for(var i=0; i < snakeLength; i++)
-    {
-        if(drawSnake.x == snake.x && drawSnake.y == snake.y && drawSnake != snake)
-        {
-            // TODO: make an animation that happens when you die
-            console.log('snake died!');
-            clearInterval(updateID);
-        }
-    }
+		// speed up the game by 0.5%
+		clearInterval(updateID);
+		curSpeed -= curSpeed * 0.01;
+		console.log(curSpeed);
+		updateID = setInterval(update, curSpeed);
+	}
+
+	snake = {
+		x: snake.x,
+		y: snake.y
+	}; // new snake obj
 }
 
 var lastDirection = 'right';
 function update() {
-    clearDrawings();
+	clearDrawings();
 
-    var curDirection;
-    if(directions.length != 0)
-        curDirection = directions.shift();
-    else
-        curDirection = lastDirection;
+	var curDirection;
+	if(directions.length != 0)
+		curDirection = directions.shift();
+	else
+		curDirection = lastDirection;
 
-    if(curDirection == 'left')
-        snake.x -= 1;
-    else if(curDirection == 'down')
-        snake.y += 1;
-    else if(curDirection == 'up')
-        snake.y -= 1;
-    else if(curDirection == 'right')
-        snake.x += 1;
+	if(curDirection == 'left')
+		snake.x -= 1;
+	else if(curDirection == 'down')
+		snake.y += 1;
+	else if(curDirection == 'up')
+		snake.y -= 1;
+	else if(curDirection == 'right')
+		snake.x += 1;
 
-    lastDirection = curDirection;
+	lastDirection = curDirection;
 
-    drawSnake();
-    drawFruit();
-    checkColision();
+	drawSnake();
+	drawFruit();
+	checkColision();
 }
+
+var updateID;
+var curSpeed = 200;
+function setupGame()
+{
+	moveFruit();
+
+	updateID = setInterval(update, curSpeed);
+	document.addEventListener("keydown", keyDown, false);
+}
+
+setupGame();
