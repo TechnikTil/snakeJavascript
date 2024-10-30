@@ -1,26 +1,27 @@
 var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext("2d");
 
-var sideLength = 150;
-var gameSideLength = 750;
+const sideLength = 150;
+const spaceSize = 3;
+const gameSideLength = 750;
 
 updateCanvasResolution();
 
 function updateCanvasResolution()
 {
-	gameSideLength = Math.min(750, window.innerWidth, window.innerHeight);
+	const tabLength = Math.min(gameSideLength, window.innerWidth, window.innerHeight);
 
-	canvas.style.left = (window.innerWidth - gameSideLength) / 2 + 'px';
-	canvas.style.top = (window.innerHeight - gameSideLength) / 2 + 'px';
+	canvas.style.left = (window.innerWidth - tabLength) / 2 + 'px';
+	canvas.style.top = (window.innerHeight - tabLength) / 2 + 'px';
 	canvas.style.position = "absolute";
 
-	canvas.width = gameSideLength;
-	canvas.height = gameSideLength;
+	canvas.width = tabLength;
+	canvas.height = tabLength;
 
 	document.body.width = window.innerWidth;
 	document.body.height = window.innerHeight;
 
-	var scale = gameSideLength/sideLength;
+	var scale = tabLength/sideLength;
 	ctx.scale(scale, scale);
 }
 
@@ -32,19 +33,29 @@ function drawSquare(x, y, width, height)
 	ctx.fillRect(x, y, width, height);
 }
 
+var updateID;
+var curSpeed = 200;
+function setupGame()
+{
+	moveFruit();
+
+	updateID = setInterval(update, curSpeed);
+	document.addEventListener("keydown", keyDown, false);
+}
+
 var snake = {x: 0, y: 0};
 var snakeArray = [];
 var snakeLength = 1; // acts like score
 function drawSnake()
 {
-	snake.x = snake.x % (sideLength / 3);
-	snake.y = snake.y % (sideLength / 3);
+	snake.x = snake.x % (sideLength / spaceSize);
+	snake.y = snake.y % (sideLength / spaceSize);
 
 	if(snake.x < 0)
-		snake.x = sideLength + snake.x;
+		snake.x = (sideLength / spaceSize) + snake.x;
 
 	if(snake.y < 0)
-		snake.y = sideLength + snake.y;
+		snake.y = (sideLength / spaceSize) + snake.y;
 
 	snakeArray.push(snake);
 
@@ -52,7 +63,7 @@ function drawSnake()
 	for(var i=0; i < curSnakes.length; i++)
 	{
 		var drawSnake = curSnakes[i];
-		drawSquare(drawSnake.x*3, drawSnake.y*3, 3, 3);
+		drawSquare(drawSnake.x*spaceSize, drawSnake.y*spaceSize, spaceSize, spaceSize);
 	}
 }
 
@@ -69,12 +80,12 @@ function getCurSnakes()
 var fruit = {x: 0, y: 0};
 function drawFruit()
 {
-	drawSquare((fruit.x*3)+1, (fruit.y*3), 1, 1);
+	drawSquare((fruit.x*spaceSize)+1, (fruit.y*spaceSize), 1, 1);
 
-	drawSquare((fruit.x*3), (fruit.y*3)+1, 1, 1);
-	drawSquare((fruit.x*3)+2, (fruit.y*3)+1, 1, 1);
+	drawSquare((fruit.x*spaceSize), (fruit.y*spaceSize)+1, 1, 1);
+	drawSquare((fruit.x*spaceSize)+2, (fruit.y*spaceSize)+1, 1, 1);
 
-	drawSquare((fruit.x*3)+1, (fruit.y*3)+2, 1, 1);
+	drawSquare((fruit.x*spaceSize)+1, (fruit.y*spaceSize)+2, 1, 1);
 }
 
 function clearDrawings()
@@ -116,8 +127,8 @@ function keyDown(e)
 
 function moveFruit()
 {
-	fruit.x = Math.floor(Math.random() * (sideLength / 3));
-	fruit.y = Math.floor(Math.random() * (sideLength / 3));
+	fruit.x = Math.floor(Math.random() * (sideLength / spaceSize));
+	fruit.y = Math.floor(Math.random() * (sideLength / spaceSize));
 }
 
 function checkColision()
@@ -129,8 +140,8 @@ function checkColision()
 		if(drawSnake.x == snake.x && drawSnake.y == snake.y && i != 0)
 		{
 			// TODO: make an animation that happens when you die
-			console.log('snake died! ' + i);
-			clearInterval(updateID);
+			console.log('snake died! ' + snakeLength);
+			snakeDeath();
 		}
 	}
 
@@ -151,6 +162,65 @@ function checkColision()
 		x: snake.x,
 		y: snake.y
 	}; // new snake obj
+}
+
+function snakeDeath()
+{
+	clearInterval(updateID);
+
+	deathAnim = setInterval(playDeathAnim, 500);
+	document.removeEventListener("keydown", keyDown, false);
+
+	var animElapsed = 0;
+	function playDeathAnim() 
+	{
+		clearDrawings();
+
+		if(animElapsed == 4)
+		{
+			clearInterval(deathAnim);
+			deathAnim = null;
+			showDeathScreen();
+			return;
+		}
+
+		if(animElapsed % 2 != 0)
+		{
+			drawSnake();
+			drawFruit();
+		}
+
+		animElapsed++;
+	}
+
+	playDeathAnim();
+}
+
+function showDeathScreen()
+{
+	ctx.font = "18px VCR OSD Mono";
+	ctx.textAlign = "center";
+	ctx.fillStyle = "green";
+
+	ctx.fillText("you died",sideLength/2,30);
+
+	var scoreText = "score: ";
+	scoreText += (snakeLength - 1);
+	ctx.fillText(scoreText,sideLength/2,65);
+
+	var enterTextX = 110;
+	ctx.fillText("press ENTER",sideLength/2,enterTextX);
+	ctx.fillText("to play again",sideLength/2,enterTextX+20);
+
+	function keydownEnter(e)
+	{
+		if(e.keyCode == 13)
+		{
+			document.removeEventListener("keydown", keydownEnter, false);
+			setupGame();
+		}
+	}
+	document.addEventListener("keydown", keydownEnter, false);
 }
 
 var lastDirection = 'right';
@@ -177,16 +247,6 @@ function update() {
 	drawSnake();
 	drawFruit();
 	checkColision();
-}
-
-var updateID;
-var curSpeed = 200;
-function setupGame()
-{
-	moveFruit();
-
-	updateID = setInterval(update, curSpeed);
-	document.addEventListener("keydown", keyDown, false);
 }
 
 setupGame();
