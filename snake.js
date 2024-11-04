@@ -1,9 +1,16 @@
 var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext("2d");
 
+// gotta do this or its not gonna be readable
+var scoreCanvas = document.getElementById("score-canvas");
+var scoreCtx = scoreCanvas.getContext("2d");
+
 const sideLength = 150;
 const spaceSize = 3;
 const gameSideLength = 750;
+
+const scoreHeight = 30;
+const scoreTileSize = 2.5;
 
 updateCanvasResolution();
 
@@ -11,18 +18,32 @@ function updateCanvasResolution()
 {
 	const tabLength = Math.min(gameSideLength, window.innerWidth, window.innerHeight);
 
-	canvas.style.left = (window.innerWidth - tabLength) / 2 + 'px';
+	canvas.style.left = ((window.innerWidth - tabLength) / 2) + 'px';
 	canvas.style.top = (window.innerHeight - tabLength) / 2 + 'px';
 	canvas.style.position = "absolute";
-
 	canvas.width = tabLength;
 	canvas.height = tabLength;
 
+	ctx.msImageSmoothingEnabled = false;
+	ctx.mozImageSmoothingEnabled = false;
+	ctx.webkitImageSmoothingEnabled = false;
+	ctx.imageSmoothingEnabled = false;
+
+	scoreCanvas.style.left = canvas.style.left;
+	scoreCanvas.style.top = (((window.innerHeight - tabLength) / 2) - scoreHeight) + 'px';
+	scoreCanvas.style.position = canvas.style.position;
+	scoreCanvas.width = tabLength;
+	scoreCanvas.height = scoreHeight;
+
+	scoreCtx.msImageSmoothingEnabled = false;
+	scoreCtx.mozImageSmoothingEnabled = false;
+	scoreCtx.webkitImageSmoothingEnabled = false;
+	scoreCtx.imageSmoothingEnabled = false;
+
+	updateScoreBoard();
+
 	document.body.width = window.innerWidth;
 	document.body.height = window.innerHeight;
-
-	var scale = tabLength/sideLength;
-	ctx.scale(scale, scale);
 }
 
 window.addEventListener("resize", updateCanvasResolution);
@@ -33,11 +54,17 @@ function drawSquare(x, y, width, height)
 	ctx.fillRect(x, y, width, height);
 }
 
+function scaleCanvas()
+{
+	ctx.drawImage(canvas, 0, 0, sideLength, sideLength, 0, 0, canvas.width, canvas.height);
+}
+
 var updateID;
 var curSpeed = 200;
 function setupGame()
 {
 	moveFruit();
+	updateScoreBoard();
 
 	updateID = setInterval(update, curSpeed);
 	document.addEventListener("keydown", keyDown, false);
@@ -48,17 +75,6 @@ var snakeArray = [];
 var snakeLength = 1; // acts like score
 function drawSnake()
 {
-	snake.x = snake.x % (sideLength / spaceSize);
-	snake.y = snake.y % (sideLength / spaceSize);
-
-	if(snake.x < 0)
-		snake.x = (sideLength / spaceSize) + snake.x;
-
-	if(snake.y < 0)
-		snake.y = (sideLength / spaceSize) + snake.y;
-
-	snakeArray.push(snake);
-
 	var curSnakes = getCurSnakes();
 	for(var i=0; i < curSnakes.length; i++)
 	{
@@ -108,19 +124,19 @@ function keyDown(e)
 			return lastDirection != direction;
 	}
 
-	if ((key == 37 || key == 65) && lastDirectionIsnt("right")) {
+	if ((key == 37 || key == 65) && (lastDirectionIsnt("right") && lastDirectionIsnt("left"))) {
 		directions.push("left");
 	}
 	
-	if ((key == 38 || key == 87) && lastDirectionIsnt("down")) {
+	if ((key == 38 || key == 87) && (lastDirectionIsnt("down") && lastDirectionIsnt("up"))) {
 		directions.push("up");
 	}
 	
-	if ((key == 39 || key == 68) && lastDirectionIsnt("left")) {
+	if ((key == 39 || key == 68) && (lastDirectionIsnt("left") && lastDirectionIsnt("right"))) {
 		directions.push("right");
 	}
 	
-	if ((key == 40 || key == 83) && lastDirectionIsnt("up")) {
+	if ((key == 40 || key == 83) && (lastDirectionIsnt("up") && lastDirectionIsnt("down"))) {
 		directions.push("down");
 	}
 }
@@ -149,6 +165,8 @@ function checkColision()
 	{
 		snakeLength++;
 		console.log('snake got fruit!');
+		checkHighscore();
+		updateScoreBoard();
 		moveFruit();
 
 		// speed up the game by 0.5%
@@ -162,6 +180,59 @@ function checkColision()
 		x: snake.x,
 		y: snake.y
 	}; // new snake obj
+}
+
+function updateSnakeLogic()
+{
+	snake.x = snake.x % (sideLength / spaceSize);
+	snake.y = snake.y % (sideLength / spaceSize);
+
+	if(snake.x < 0)
+		snake.x = (sideLength / spaceSize) + snake.x;
+
+	if(snake.y < 0)
+		snake.y = (sideLength / spaceSize) + snake.y;
+
+	snakeArray.push(snake);
+}
+
+function updateScoreBoard()
+{
+	const nonScaledScoreHeight = scoreHeight / scoreTileSize;
+	const nonScaledScoreWidth = scoreCanvas.width / scoreTileSize;
+
+	scoreCtx.fillStyle = "black";
+	scoreCtx.fillRect(0, 0, nonScaledScoreWidth, nonScaledScoreHeight);
+
+	scoreCtx.font = nonScaledScoreHeight + "px vcrOsdMono";
+	scoreCtx.fillStyle = "green";
+
+	scoreCtx.textAlign = "left";
+	scoreCtx.fillText("score: " + (snakeLength - 1),2,nonScaledScoreHeight);
+
+	scoreCtx.textAlign = "right";
+	scoreCtx.fillText("highscore: " + localStorage.getItem('snakeHighscore'), nonScaledScoreWidth-2,nonScaledScoreHeight);
+
+	scoreCtx.drawImage(scoreCanvas, 0, 0, nonScaledScoreWidth, nonScaledScoreHeight, 0, 0, scoreCanvas.width, scoreCanvas.height);
+}
+
+var newHighscore = false;
+function checkHighscore()
+{
+	const curHighscore = localStorage.getItem('snakeHighscore');
+
+	if(curHighscore == null)
+		localStorage.setItem('snakeHighscore', (snakeLength - 1));
+	else
+	{
+		const curHighscoreNumber = Number(curHighscore);
+
+		if(curHighscoreNumber < (snakeLength - 1))
+		{
+			localStorage.setItem('snakeHighscore', (snakeLength - 1));
+			newHighscore = true;
+		}
+	}
 }
 
 function snakeDeath()
@@ -190,6 +261,8 @@ function snakeDeath()
 			drawFruit();
 		}
 
+		scaleCanvas();
+
 		animElapsed++;
 	}
 
@@ -198,7 +271,7 @@ function snakeDeath()
 
 function showDeathScreen()
 {
-	ctx.font = "18px VCR OSD Mono";
+	ctx.font = "18px vcrOsdMono";
 	ctx.textAlign = "center";
 	ctx.fillStyle = "green";
 
@@ -207,17 +280,22 @@ function showDeathScreen()
 	var scoreText = "score: ";
 	scoreText += (snakeLength - 1);
 	ctx.fillText(scoreText,sideLength/2,65);
+	
+	if(newHighscore)
+		ctx.fillText('new highscore!',sideLength/2,65+20);
 
 	var enterTextX = 110;
 	ctx.fillText("press ENTER",sideLength/2,enterTextX);
 	ctx.fillText("to play again",sideLength/2,enterTextX+20);
+
+	scaleCanvas();
 
 	function keydownEnter(e)
 	{
 		if(e.keyCode == 13)
 		{
 			document.removeEventListener("keydown", keydownEnter, false);
-			setupGame();
+			location.reload();
 		}
 	}
 	document.addEventListener("keydown", keydownEnter, false);
@@ -244,8 +322,12 @@ function update() {
 
 	lastDirection = curDirection;
 
+	updateSnakeLogic();
 	drawSnake();
+
 	drawFruit();
+
+	scaleCanvas();
 	checkColision();
 }
 
